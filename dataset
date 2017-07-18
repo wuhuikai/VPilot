@@ -16,15 +16,24 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', default='8000', help='The port where DeepGTAV is running')
     parser.add_argument('-d', '--dataset_path', default='checkpoints', help='Place to store the dataset')
     parser.add_argument('--location', nargs='+', type=float, default=None, help='Start location, [x, y]')
-    parser.add_argument('--time', nargs='+', type=int, default=None, help='Start time, [hour, minute]')
-    parser.add_argument('--weather', default=None, help='Weather type')
+    parser.add_argument('--time', nargs='+', type=int, default=None, help='Start times, [hour, hour, ...]')
+    parser.add_argument('--weather', nargs='+', default=None, help='Weather types')
     parser.add_argument('--speed', type=float, default=175, help='Speed')
-    parser.add_argument('--cameraYaw', type=float, default=0, help='Camera yaw in degree')
-    parser.add_argument('--n_frames', type=int, default=10000, help='# of frames to collect')
+    parser.add_argument('--cameraYaw', nargs='+', type=float, default=[0], help='Camera yaws in degree')
+    parser.add_argument('--n_frames', type=int, default=10001, help='# of frames to collect')
     args = parser.parse_args()
 
     args.dataset_path = os.path.join(args.dataset_path, '{}_TIME[{}]_YAW[{}]_X[{}]_Y[{}].pz'.format(
-        args.weather, args.time[0], args.cameraYaw, args.location[0], args.location[1]))
+        ':'.join(args.weather), ':'.join([str(t) for t in args.time]),
+        ':'.join([str(y) for y in args.cameraYaw]), args.location[0], args.location[1]))
+    config_path = args.dataset_path.replace('.pz', '.config')
+    with open(config_path, 'w') as f:
+        f.write(','.join([str(t) for t in args.time]))
+        f.write('\n')
+        f.write(','.join(args.weather))
+        f.write('\n')
+        f.write(','.join([str(y) for y in args.cameraYaw]))
+
     # Creates a new connection to DeepGTAV using the specified ip and port.
     # If desired, a dataset path and compression level can be set to store in memory all the data received in a gziped pickle file.
     client = Client(ip=args.host, port=args.port, datasetPath=args.dataset_path, compressionLevel=9)
@@ -36,19 +45,23 @@ if __name__ == '__main__':
     # Send the Start request to DeepGTAV.
     scenario = Scenario(
         location = args.location,           #[x, y]
-        time = args.time,                   #[hour, minute]
-        weather = args.weather,             #string
+        times = args.time,                  #[hour, hour, ...]
+        weathers = args.weather,            #string list
         vehicle = "voltic",                 #string
         drivingMode = [786603, args.speed], #[mode, speed]
-        cameraYaw = args.cameraYaw)         #float
+        cameraYaws = args.cameraYaw)        #float list
     client.sendMessage(Start(dataset=dataset,scenario=scenario))
 
     # Start listening for messages coming from DeepGTAV.
     frames_left = args.n_frames
+    total_len = len(args.time)*len(args.weather)*len(args.cameraYaw)
     while frames_left > 0:
         try:
             # We receive a message as a Python dictionary
-            message = client.recvMessage()
+            print(frames_left)
+            for idx in range(total_len):
+                message = client.recvMessage()
+                print('\t{}\t{}'.format(total_len-idx, message['location'][:2]))
             frames_left -= 1
             
             # The frame is a numpy array and can be displayed using OpenCV or similar       
