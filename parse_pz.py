@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     with gzip.open(os.path.join(save_folder, file_name), 'rb') as f:
         skip = 1
-        frame_id = 0
+        frame_id = -1
         length = len(scenario_names)
         while True:
             try:
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
                 if args.show:
                     cv2.imshow('GTAV---{}[{}]'.format(args.file_prefix, scenario), frame)
-                    cv2.waitKey(10)
+                    cv2.waitKey(1)
 
                 frame_id += 1
             except:
